@@ -4,7 +4,7 @@
  *
  * Handles discovering above-the-fold images for posts/pages and stores the
  * viewport image list per post (desktop & mobile). Coordinates with the
- * remote service via queue + cron + webhook notify.
+ * remote svc via queue + cron.
  *
  * @since   4.7
  * @package LiteSpeed
@@ -17,7 +17,7 @@ defined( 'WPINC' ) || exit();
 /**
  * Generate and manage ViewPort Images (VPI) for pages.
  */
-class VPI extends Base {
+class VPI extends Cloud_Queue_Svc {
 
 	/**
 	 * Log tag for debug output.
@@ -27,20 +27,13 @@ class VPI extends Base {
 	const LOG_TAG = '[VPI]';
 
 	/**
-	 * Action types.
-	 *
-	 * @var string
-	 */
-	const TYPE_GEN     = 'gen';
-	const TYPE_CLEAR_Q = 'clear_q';
-
-	/**
 	 * VPI Desktop Meta name.
 	 *
 	 * @since  7.6
 	 * @var string
 	 */
 	const POST_META = 'litespeed_vpi_list';
+
 	/**
 	 * VPI Mobile Meta name.
 	 *
@@ -55,13 +48,6 @@ class VPI extends Base {
 	 * @var array
 	 */
 	protected $_summary;
-
-	/**
-	 * In-memory working queue for VPI jobs.
-	 *
-	 * @var array
-	 */
-	private $_queue;
 
 	/**
 	 * Init.
@@ -96,8 +82,8 @@ class VPI extends Base {
 		// Store it to prepare for cron.
 		$this->_queue = $this->load_queue( 'vpi' );
 
-		if ( count( $this->_queue ) > 500 ) {
-			self::debug( 'Queue is full - 500' );
+		if ( count( $this->_queue ) > $this->_max_queue_size() ) {
+			self::debug( 'Queue is full - ' . $this->_max_queue_size() );
 			return;
 		}
 

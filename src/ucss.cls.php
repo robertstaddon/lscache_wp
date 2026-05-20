@@ -15,12 +15,9 @@ defined( 'WPINC' ) || exit();
  *
  * @since 5.1
  */
-class UCSS extends Base {
+class UCSS extends Cloud_Queue_Svc {
 
 	const LOG_TAG = '[UCSS]';
-
-	const TYPE_GEN     = 'gen';
-	const TYPE_CLEAR_Q = 'clear_q';
 
 	/**
 	 * Summary data.
@@ -35,13 +32,6 @@ class UCSS extends Base {
 	 * @var array
 	 */
 	private $_ucss_whitelist;
-
-	/**
-	 * Queue for UCSS generation.
-	 *
-	 * @var array
-	 */
-	private $_queue;
 
 	/**
 	 * Init
@@ -64,11 +54,11 @@ class UCSS extends Base {
 	 */
 	public static function get_url_tag( $request_url = false ) {
 		$url_tag = $request_url;
-		if (is_404()) {
+		if ( is_404() ) {
 			$url_tag = '404';
-		} elseif (apply_filters('litespeed_ucss_per_pagetype', false)) {
+		} elseif ( apply_filters( 'litespeed_ucss_per_pagetype', false ) ) {
 			$url_tag = Utility::page_type();
-			self::debug('litespeed_ucss_per_pagetype filter altered url to ' . $url_tag);
+			self::debug( 'litespeed_ucss_per_pagetype filter altered url to ' . $url_tag );
 		}
 
 		return $url_tag;
@@ -93,50 +83,50 @@ class UCSS extends Base {
 			return false;
 		}
 
-		$filepath_prefix = $this->_build_filepath_prefix('ucss');
+		$filepath_prefix = $this->_build_filepath_prefix( 'ucss' );
 
-		$url_tag = self::get_url_tag($request_url);
+		$url_tag = self::get_url_tag( $request_url );
 
-		$vary     = $this->cls('Vary')->finalize_full_varies();
-		$filename = $this->cls('Data')->load_url_file($url_tag, $vary, 'ucss');
-		if ($filename) {
+		$vary     = $this->cls( 'Vary' )->finalize_full_varies();
+		$filename = $this->cls( 'Data' )->load_url_file( $url_tag, $vary, 'ucss' );
+		if ( $filename ) {
 			$static_file = LITESPEED_STATIC_DIR . $filepath_prefix . $filename . '.css';
 
-			if (file_exists($static_file)) {
-				self::debug2('existing ucss ' . $static_file);
+			if ( file_exists( $static_file ) ) {
+				self::debug2( 'existing ucss ' . $static_file );
 				// Check if is error comment inside only
-				$tmp = File::read($static_file);
+				$tmp = File::read( $static_file );
 				if ( '/*' === substr( $tmp, 0, 2 ) && '*/' === substr( trim( $tmp ), -2 ) ) {
-					self::debug2('existing ucss is error only: ' . $tmp);
-					Core::comment('QUIC.cloud UCSS bypassed due to generation error ❌ ' . $filepath_prefix . $filename . '.css');
+					self::debug2( 'existing ucss is error only: ' . $tmp );
+					Core::comment( 'QUIC.cloud UCSS bypassed due to generation error ❌ ' . $filepath_prefix . $filename . '.css' );
 					return false;
 				}
 
-				Core::comment('QUIC.cloud UCSS loaded ✅ ' . $filepath_prefix . $filename . '.css' );
+				Core::comment( 'QUIC.cloud UCSS loaded ✅ ' . $filepath_prefix . $filename . '.css' );
 
 				return $filename . '.css';
 			}
 		}
 
-		if ($dry_run) {
+		if ( $dry_run ) {
 			return false;
 		}
 
-		Core::comment('QUIC.cloud UCSS in queue');
+		Core::comment( 'QUIC.cloud UCSS in queue' );
 
 		$uid = get_current_user_id();
 
 		$ua = $this->_get_ua();
 
 		// Store it for cron
-		$this->_queue = $this->load_queue('ucss');
+		$this->_queue = $this->load_queue( 'ucss' );
 
-		if (count($this->_queue) > 500) {
-			self::debug('UCSS Queue is full - 500');
+		if ( count( $this->_queue ) > $this->_max_queue_size() ) {
+			self::debug( 'UCSS Queue is full - ' . $this->_max_queue_size() );
 			return false;
 		}
 
-		$queue_k                  = (strlen($vary) > 32 ? md5($vary) : $vary) . ' ' . $url_tag;
+		$queue_k                  = ( strlen( $vary ) > 32 ? md5( $vary ) : $vary ) . ' ' . $url_tag;
 		$this->_queue[ $queue_k ] = [
 			'url'        => apply_filters( 'litespeed_ucss_url', $request_url ),
 			'user_agent' => substr( $ua, 0, 200 ),
@@ -146,11 +136,11 @@ class UCSS extends Base {
 			'vary'       => $vary,
 			'url_tag'    => $url_tag,
 		]; // Current UA will be used to request
-		$this->save_queue('ucss', $this->_queue);
-		self::debug('Added queue_ucss [url_tag] ' . $url_tag . ' [UA] ' . $ua . ' [vary] ' . $vary . ' [uid] ' . $uid);
+		$this->save_queue( 'ucss', $this->_queue );
+		self::debug( 'Added queue_ucss [url_tag] ' . $url_tag . ' [UA] ' . $ua . ' [vary] ' . $vary . ' [uid] ' . $uid );
 
 		// Prepare cache tag for later purge
-		Tag::add('UCSS.' . md5($queue_k));
+		Tag::add( 'UCSS.' . md5( $queue_k ) );
 
 		return false;
 	}
@@ -176,20 +166,20 @@ class UCSS extends Base {
 	 */
 	public function add_to_q( $url_files ) {
 		// Store it for cron
-		$this->_queue = $this->load_queue('ucss');
+		$this->_queue = $this->load_queue( 'ucss' );
 
-		if (count($this->_queue) > 500) {
-			self::debug('UCSS Queue is full - 500');
+		if ( count( $this->_queue ) > $this->_max_queue_size() ) {
+			self::debug( 'UCSS Queue is full - ' . $this->_max_queue_size() );
 			return false;
 		}
 
 		$ua = $this->_get_ua();
-		foreach ($url_files as $url_file) {
+		foreach ( $url_files as $url_file ) {
 			$vary        = $url_file['vary'];
 			$request_url = $url_file['url'];
 			$is_mobile   = $url_file['mobile'];
 			$is_webp     = $url_file['webp'];
-			$url_tag     = self::get_url_tag($request_url);
+			$url_tag     = self::get_url_tag( $request_url );
 
 			$queue_k = (strlen($vary) > 32 ? md5($vary) : $vary) . ' ' . $url_tag;
 			$q       = [
@@ -416,39 +406,14 @@ class UCSS extends Base {
 	 */
 	private function _filter_whitelist() {
 		$whitelist = [];
-		$list      = apply_filters('litespeed_ucss_whitelist', $this->conf(self::O_OPTM_UCSS_SELECTOR_WHITELIST));
-		foreach ($list as $k => $v) {
-			if (substr($v, 0, 2) === '//') {
+		$list      = apply_filters( 'litespeed_ucss_whitelist', $this->conf( self::O_OPTM_UCSS_SELECTOR_WHITELIST ) );
+		foreach ( $list as $v ) {
+			if ( substr( $v, 0, 2 ) === '//' ) {
 				continue;
 			}
 			$whitelist[] = $v;
 		}
 
 		return $whitelist;
-	}
-
-	/**
-	 * Handle all request actions from main cls
-	 *
-	 * @since  2.3
-	 * @access public
-	 */
-	public function handler() {
-		$type = Router::verify_type();
-
-		switch ($type) {
-			case self::TYPE_GEN:
-            self::cron(true);
-				break;
-
-			case self::TYPE_CLEAR_Q:
-            $this->clear_q('ucss');
-				break;
-
-			default:
-				break;
-		}
-
-		Admin::redirect();
 	}
 }

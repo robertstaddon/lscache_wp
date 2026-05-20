@@ -17,12 +17,9 @@ defined( 'WPINC' ) || exit();
  *
  * @since 8.0
  */
-class Optimax extends Base {
+class Optimax extends Cloud_Queue_Svc {
 
 	const LOG_TAG = '🚀';
-
-	const TYPE_GEN     = 'gen';
-	const TYPE_CLEAR_Q = 'clear_q';
 
 	/**
 	 * Summary data cache.
@@ -30,13 +27,6 @@ class Optimax extends Base {
 	 * @var array
 	 */
 	protected $_summary;
-
-	/**
-	 * Request queue.
-	 *
-	 * @var array
-	 */
-	private $_queue;
 
 	/**
 	 * Init.
@@ -324,8 +314,8 @@ class Optimax extends Base {
 
 		$this->_queue = $this->load_queue( 'optimax' );
 
-		if ( count( $this->_queue ) > 500 ) {
-			self::debug( 'Queue is full - 500' );
+		if ( count( $this->_queue ) > $this->_max_queue_size() ) {
+			self::debug( 'Queue is full - ' . $this->_max_queue_size() );
 			return false;
 		}
 
