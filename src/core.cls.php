@@ -454,8 +454,12 @@ class Core extends Root {
 		$buffer = apply_filters( 'litespeed_buffer_before', $buffer );
 
 		/**
+		 * ESI: clean wrappers MUST run before any optimizer hook (HTML minifier strips HTML comments and would erase the wrapper markers themselves). Runs unconditionally so NO_OPTM requests with ESI blocks still produce a clean buffer.
+		 */
+		$buffer = $this->cls( 'ESI' )->finalize_clean_wrapper( $buffer );
+
+		/**
 		 * Media: Image lazyload && WebP
-		 * GUI: Clean wrapper mainly for ESI block NOTE: this needs to be before optimizer to avoid wrapper being removed
 		 * Optimize
 		 * CDN
 		 */

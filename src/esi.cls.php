@@ -18,9 +18,10 @@ class ESI extends Root {
 
 	const LOG_TAG = '⏺';
 
-	private static $has_esi      = false;
-	private static $_combine_ids = array();
-	private $esi_args            = null;
+	private static $has_esi        = false;
+	private static $_combine_ids   = array();
+	private static $_clean_counter = 0;
+	private $esi_args              = null;
 	private $_esi_preserve_list  = array();
 	private $_nonce_actions      = array( -1 => '' ); // val is cache control
 
@@ -165,7 +166,7 @@ class ESI extends Root {
 
 		$this->_nonce_actions[$action] = $control;
 
-		// Debug2::debug('[ESI] Appended nonce action to nonce list [action] ' . $action);
+		// self::debug('[ESI] Appended nonce action to nonce list [action] ' . $action);
 	}
 
 	/**
@@ -208,7 +209,7 @@ class ESI extends Root {
 	 */
 	public function shortcode( $atts ) {
 		if (empty($atts[0])) {
-			Debug2::debug('[ESI] ===shortcode wrong format', $atts);
+			self::debug('[ESI] ===shortcode wrong format', $atts);
 			return 'Wrong shortcode esi format';
 		}
 
@@ -265,7 +266,7 @@ class ESI extends Root {
 		 */
 		!defined('LSCACHE_IS_ESI') && define('LSCACHE_IS_ESI', $_GET[self::QS_ACTION]); // Reused this to ESI block ID
 
-		!empty($_SERVER['ESI_REFERER']) && defined('LSCWP_LOG') && Debug2::debug('[ESI] ESI_REFERER: ' . $_SERVER['ESI_REFERER']);
+		!empty($_SERVER['ESI_REFERER']) && defined('LSCWP_LOG') && self::debug('[ESI] ESI_REFERER: ' . $_SERVER['ESI_REFERER']);
 
 		/**
 		 * Only when ESI's parent is not REST, replace REQUEST_URI to avoid breaking WP5 editor REST call
@@ -397,7 +398,7 @@ class ESI extends Root {
 
 		self::set_has_esi();
 
-		Debug2::debug('[ESI] 🍔 Load combo', $_POST['esi_include']);
+		self::debug('[ESI] 🍔 Load combo', $_POST['esi_include']);
 
 		$output = '';
 		foreach ($_POST['esi_include'] as $url) {
@@ -465,7 +466,7 @@ class ESI extends Root {
 		}
 
 		if (defined('LITESPEED_ESI_OFF')) {
-			Debug2::debug('[ESI] ESI OFF so force loading [block_id] ' . $block_id);
+			self::debug('[ESI] ESI OFF so force loading [block_id] ' . $block_id);
 			do_action('litespeed_esi_load-' . $block_id, $params);
 			return;
 		}
@@ -483,7 +484,7 @@ class ESI extends Root {
 		$control = apply_filters('litespeed_esi_control', $control, $block_id);
 
 		if (!is_array($params) || !is_string($control)) {
-			defined('LSCWP_LOG') && Debug2::debug("[ESI] 🛑 Sub hooks returned Params: \n" . var_export($params, true) . "\ncache control: \n" . var_export($control, true));
+			defined('LSCWP_LOG') && self::debug("[ESI] 🛑 Sub hooks returned Params: \n" . var_export($params, true) . "\ncache control: \n" . var_export($control, true));
 
 			return false;
 		}
@@ -497,7 +498,7 @@ class ESI extends Root {
 		}
 		if ($params) {
 			$appended_params[self::QS_PARAMS] = base64_encode(\json_encode($params));
-			Debug2::debug2('[ESI] param ', $params);
+			self::debug2('param ', $params);
 		}
 
 		// Append hash
@@ -571,7 +572,7 @@ class ESI extends Root {
 				$str .= $params[$v];
 			}
 		}
-		Debug2::debug2('[ESI] md5_string=' . $str);
+		self::debug2('md5_string=' . $str);
 
 		return md5($this->conf(Base::HASH) . $str);
 	}
@@ -599,7 +600,7 @@ class ESI extends Root {
 			return false;
 		}
 
-		Debug2::debug2('[ESI] params', $unencrypted);
+		self::debug2('params', $unencrypted);
 		// $unencoded = urldecode($unencrypted); no need to do this as $_GET is already parsed
 		$params = \json_decode($unencrypted, true);
 
@@ -619,7 +620,7 @@ class ESI extends Root {
 		 * @since 2.9.6
 		 */
 		if (empty($_GET['_hash']) || $this->_gen_esi_md5($_GET) != $_GET['_hash']) {
-			Debug2::debug('[ESI] ❌ Failed to validate _hash');
+			self::debug('[ESI] ❌ Failed to validate _hash');
 			return;
 		}
 
@@ -631,7 +632,7 @@ class ESI extends Root {
 				$logInfo .= ' Name: ' . $params[self::PARAM_NAME] . ' ----- ';
 			}
 			$logInfo .= ' [ID] ' . LSCACHE_IS_ESI;
-			Debug2::debug($logInfo);
+			self::debug($logInfo);
 		}
 
 		if (!empty($params['_ls_silence'])) {
@@ -650,7 +651,7 @@ class ESI extends Root {
 		Tag::add(rtrim(Tag::TYPE_ESI, '.'));
 		Tag::add(Tag::TYPE_ESI . LSCACHE_IS_ESI);
 
-		// Debug2::debug(var_export($params, true ));
+		// self::debug(var_export($params, true ));
 
 		/**
 		 * Handle default cache control 'private,no-vary' for sub_esi_block()   @ticket #923505
@@ -722,7 +723,7 @@ class ESI extends Root {
 		}
 		$options = $instance[Base::OPTION_NAME];
 		if (!isset($options) || !$options[self::WIDGET_O_ESIENABLE]) {
-			defined('LSCWP_LOG') && Debug2::debug('ESI 0 ' . $name . ': ' . (!isset($options) ? 'not set' : 'set off'));
+			defined('LSCWP_LOG') && self::debug('ESI 0 ' . $name . ': ' . (!isset($options) ? 'not set' : 'set off'));
 
 			return $instance;
 		}
@@ -780,7 +781,7 @@ class ESI extends Root {
 
 		// Since we only reach here via esi, safe to assume setting exists.
 		$ttl = $option[self::WIDGET_O_TTL];
-		defined('LSCWP_LOG') && Debug2::debug('ESI widget render: name ' . $params[self::PARAM_NAME] . ', id ' . $params[self::PARAM_ID] . ', ttl ' . $ttl);
+		defined('LSCWP_LOG') && self::debug('ESI widget render: name ' . $params[self::PARAM_NAME] . ', id ' . $params[self::PARAM_ID] . ', ttl ' . $ttl);
 		if ($ttl == 0) {
 			Control::set_nocache('ESI Widget time to live set to 0');
 		} else {
@@ -830,7 +831,7 @@ class ESI extends Root {
 			Control::set_no_vary();
 		}
 
-		defined('LSCWP_LOG') && Debug2::debug('ESI: adminbar ref: ' . $_SERVER['REQUEST_URI']);
+		defined('LSCWP_LOG') && self::debug('ESI: adminbar ref: ' . $_SERVER['REQUEST_URI']);
 	}
 
 	/**
@@ -863,7 +864,7 @@ class ESI extends Root {
 	public function load_nonce_block( $params ) {
 		$action = $params['action'];
 
-		Debug2::debug('[ESI] load_nonce_block [action] ' . $action);
+		self::debug('[ESI] load_nonce_block [action] ' . $action);
 
 		// set nonce TTL to half day
 		Control::set_custom_ttl(43200);
@@ -923,7 +924,7 @@ class ESI extends Root {
 	 */
 	public function register_comment_form_actions( $defaults ) {
 		$this->esi_args = $defaults;
-		echo GUI::clean_wrapper_begin();
+		echo self::clean_wrapper_begin();
 		add_filter('comment_form_submit_button', array( $this, 'sub_comment_form_btn' ), 1000, 2); // To save the params passed in
 		add_action('comment_form', array( $this, 'sub_comment_form_block' ), 1000);
 		return $defaults;
@@ -937,7 +938,7 @@ class ESI extends Root {
 	 */
 	public function sub_comment_form_btn( $unused, $args ) {
 		if (empty($args) || empty($this->esi_args)) {
-			Debug2::debug('comment form args empty?');
+			self::debug('comment form args empty?');
 			return $unused;
 		}
 		$esi_args = array();
@@ -970,14 +971,14 @@ class ESI extends Root {
 	 * @since 1.1.3
 	 */
 	public function sub_comment_form_block( $post_id ) {
-		echo GUI::clean_wrapper_end();
+		echo self::clean_wrapper_end();
 		$params = array(
 			self::PARAM_ID => $post_id,
 			self::PARAM_ARGS => $this->esi_args,
 		);
 
 		echo $this->sub_esi_block('comment-form', 'comment form', $params);
-		echo GUI::clean_wrapper_begin();
+		echo self::clean_wrapper_begin();
 		add_action('comment_form_after', array( $this, 'comment_form_sub_clean' ));
 	}
 
@@ -989,7 +990,89 @@ class ESI extends Root {
 	 * @access public
 	 */
 	public function comment_form_sub_clean() {
-		echo GUI::clean_wrapper_end();
+		echo self::clean_wrapper_end();
+	}
+
+	/**
+	 * Display a to-be-removed HTML wrapper (begin tag).
+	 *
+	 * @since 1.4
+	 * @since 7.9 Moved from GUI to ESI
+	 * @access public
+	 *
+	 * @param int|false $counter Optional explicit wrapper id; auto-increment if false.
+	 * @return string Wrapper begin HTML comment.
+	 */
+	public static function clean_wrapper_begin( $counter = false ) {
+		if (false === $counter) {
+			++self::$_clean_counter;
+			$counter = self::$_clean_counter;
+			self::debug('clean wrapper ' . $counter . ' begin');
+		}
+		return '<!-- LiteSpeed To Be Removed begin ' . $counter . ' -->';
+	}
+
+	/**
+	 * Display a to-be-removed HTML wrapper (end tag).
+	 *
+	 * @since 1.4
+	 * @since 7.9 Moved from GUI to ESI.
+	 * @access public
+	 *
+	 * @param int|false $counter Optional explicit wrapper id; use latest if false.
+	 * @return string Wrapper end HTML comment.
+	 */
+	public static function clean_wrapper_end( $counter = false ) {
+		if (false === $counter) {
+			$counter = self::$_clean_counter;
+			self::debug('clean wrapper ' . $counter . ' end');
+		}
+		return '<!-- LiteSpeed To Be Removed end ' . $counter . ' -->';
+	}
+
+	/**
+	 * Strip wrapped default HTML that ESI replaced.
+	 *
+	 * MUST run before any optimizer hook: HTML minifier strips HTML comments, which would remove the wrapper markers themselves and leave the wrapped default HTML orphaned in the final output. Called unconditionally from Core::send_headers_force() so that NO_OPTM requests still get a clean buffer.
+	 *
+	 * @since 7.9
+	 * @access public
+	 *
+	 * @param string $buffer HTML buffer.
+	 * @return string Cleaned buffer.
+	 */
+	public function finalize_clean_wrapper( $buffer ) {
+		if (self::$_clean_counter < 1) {
+			self::debug2('clean wrapper bypassed by no counter');
+			return $buffer;
+		}
+
+		self::debug2('clean wrapper start, counter ' . self::$_clean_counter);
+
+		for ($i = 1; $i <= self::$_clean_counter; $i++) {
+			// If miss beginning.
+			$start = strpos($buffer, self::clean_wrapper_begin($i));
+			if (false === $start) {
+				$buffer = str_replace(self::clean_wrapper_end($i), '', $buffer);
+				self::debug2("lost beginning wrapper $i");
+				continue;
+			}
+
+			// If miss end.
+			$end_wrapper = self::clean_wrapper_end($i);
+			$end         = strpos($buffer, $end_wrapper);
+			if (false === $end) {
+				$buffer = str_replace(self::clean_wrapper_begin($i), '', $buffer);
+				self::debug2("lost ending wrapper $i");
+				continue;
+			}
+
+			// Now replace wrapped content.
+			$buffer = substr_replace($buffer, '', $start, $end - $start + strlen($end_wrapper));
+			self::debug2("cleaned wrapper $i");
+		}
+
+		return $buffer;
 	}
 
 	/**
@@ -1001,7 +1084,7 @@ class ESI extends Root {
 	public function finalize( $buffer ) {
 		// Prepend combo esi block
 		if (self::$_combine_ids) {
-			Debug2::debug('[ESI] 🍔 Enabled combo');
+			self::debug('[ESI] 🍔 Enabled combo');
 			$esi_block = $this->sub_esi_block(self::COMBO, '__COMBINE_MAIN__', array(), 'no-cache', true);
 			$buffer    = $esi_block . $buffer;
 		}
@@ -1013,7 +1096,7 @@ class ESI extends Root {
 
 		$keys = array_keys($this->_esi_preserve_list);
 
-		Debug2::debug('[ESI] replacing preserved blocks', $keys);
+		self::debug('[ESI] replacing preserved blocks', $keys);
 
 		$buffer = str_replace($keys, $this->_esi_preserve_list, $buffer);
 
