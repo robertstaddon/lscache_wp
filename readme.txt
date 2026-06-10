@@ -271,6 +271,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * **Image Optimize** Fixed infinite redirect loop issue for image optimization actions. (giangel84 PR#959)
 * **Image Optimize** Fixed image optimization data not being cleared when images are replaced using third-party plugins.
 * **Image Optimize** Fixed reset single image not deleting records from img_optm and img_optming database tables.
+* **Image Optimize** Skipped sending queued images from the queue when their optimized files already exist. (terratag)
 * **Page Optimize** Fixed font optimization in certain themes. (rbabt PR#955)
 * **Page Optimize** Filtered HTML tags when saving CSS content.
 * **Conf** Improved network subsites config loading efficiency. (dassels43)
