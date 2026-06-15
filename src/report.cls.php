@@ -23,6 +23,12 @@ class Report extends Base {
 	 * @access public
 	 */
 	public function handler() {
+		// Defer until after `wp_loaded` so 3rd-party appended options (e.g. WooCommerce wc_update_interval / wc_cart_vary) are present in the regenerated report.
+		if (!did_action('wp_loaded')) {
+			add_action('wp_loaded', array( $this, 'handler' ), 5);
+			return;
+		}
+
 		$type = Router::verify_type();
 
 		switch ($type) {
