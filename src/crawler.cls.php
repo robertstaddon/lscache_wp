@@ -35,6 +35,9 @@ class Crawler extends Root {
 	const STATUS_BLACKLIST = 'B';
 	const STATUS_NOCACHE   = 'N';
 
+	// Number of consecutive crawl failures before a URL is given up (dropped from the sitemap).
+	const BLACKLIST_THRESHOLD = 3;
+
 	/**
 	 * Sitemeta file slug.
 	 *
@@ -1446,8 +1449,17 @@ class Crawler extends Root {
 			if ( 'Existed' === $reason ) {
 				$reason = __( 'Previously existed in blocklist', 'litespeed-cache' );
 			}
+			if ( ctype_digit( (string) $v ) ) {
+				// Counting marker: failed N time(s), still retrying.
+				$class  = 'warning';
+				$reason = $reason
+					? sprintf( __( 'Failed %1$s time(s) (HTTP %2$s), still retrying', 'litespeed-cache' ), $v, $reason )
+					: sprintf( __( 'Failed %s time(s), still retrying', 'litespeed-cache' ), $v );
+			} else {
+				$class = isset( $_status_list[ $v ] ) ? $_status_list[ $v ] : 'default';
+			}
 			$reason_attr = $reason ? 'data-balloon-pos="up" aria-label="' . esc_attr( $reason ) . '"' : '';
-			$status     .= '<i class="litespeed-dot litespeed-bg-' . esc_attr( $_status_list[ $v ] ) . '" ' . $reason_attr . '>' . ( $k + 1 ) . '</i>';
+			$status     .= '<i class="litespeed-dot litespeed-bg-' . esc_attr( $class ) . '" ' . $reason_attr . '>' . ( $k + 1 ) . '</i>';
 		}
 
 		return $status;
