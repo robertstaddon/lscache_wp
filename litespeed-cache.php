@@ -160,6 +160,17 @@ if ( ! function_exists( 'litespeed_define_nonce_func' ) ) {
 			if ( ! defined( 'LITESPEED_DISABLE_ALL' ) || ! LITESPEED_DISABLE_ALL ) {
 				$control = \LiteSpeed\ESI::cls()->is_nonce_action( $action );
 				if ( null !== $control ) {
+					// The `private` cache control on a nonce ESI include only has a private cache
+					// scope for logged-in visitors. `load_nonce_block()` mirrors this by calling
+					// `Control::set_private()` only when `Router::is_logged_in()` is true. Forcing
+					// `private` on the include for guests routes the fragment into the private cache
+					// with no vary scope, so on the Private Cache TTL cycle it regenerates to an empty
+					// block on a publicly cached page. Drop `private` for guests so the two stay
+					// consistent and the nonce resolves through the shared public ESI path.
+					if ( false !== strpos( $control, 'private' ) && ! \LiteSpeed\Router::is_logged_in() ) {
+						$control = trim( preg_replace( '/\bprivate\b/', '', $control ) );
+					}
+
 					$params = array(
 						'action' => $action,
 					);
